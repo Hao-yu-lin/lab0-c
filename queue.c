@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,7 @@ element_t *new_ele(char *s)
         return NULL;
     }
     strncpy(new->value, s, str_size);
+    *(new->value + str_size) = '\0';
 
     return new;
 }
@@ -182,6 +184,18 @@ int q_size(struct list_head *head)
 bool q_delete_mid(struct list_head *head)
 {
     // https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
+    if (!head || !head->next)
+        return false;
+    struct list_head *fast = head->next;
+    struct list_head *slow = head->next;
+
+    while (fast != head && fast->next != head) {
+        fast = fast->next->next;
+        slow = slow->next;
+    }
+
+    list_del(slow);
+    q_release_element(list_entry(slow, element_t, list));
     return true;
 }
 
@@ -193,10 +207,30 @@ bool q_delete_mid(struct list_head *head)
  *
  * Note: this function always be called after sorting, in other words,
  * list is guaranteed to be sorted in ascending order.
+ * https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
  */
 bool q_delete_dup(struct list_head *head)
 {
-    // https://leetcode.com/problems/remove-duplicates-from-sorted-list-ii/
+    if (!head || list_empty(head))
+        return false;
+    struct list_head *curr = head->next;
+    struct list_head *next = curr->next;
+
+    while (curr != head && next != head) {
+        element_t *curr_entry = list_entry(curr, element_t, list);
+        element_t *next_entry = list_entry(next, element_t, list);
+
+        while (next != head && !strcmp(curr_entry->value, next_entry->value)) {
+            list_del(next);
+            q_release_element(next_entry);
+            next = curr->next;
+            next_entry = list_entry(next, element_t, list);
+        }
+
+        curr = next;
+        next = next->next;
+    }
+
     return true;
 }
 
@@ -222,4 +256,70 @@ void q_reverse(struct list_head *head) {}
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
-void q_sort(struct list_head *head) {}
+static struct list_head *mergelist(struct list_head *left,
+                                   struct list_head *right)
+{
+    struct list_head *head = NULL;
+    struct list_head **ptr = &head;
+    while (left && right) {
+        element_t *left_entry = list_entry(left, element_t, list);
+        element_t *right_entry = list_entry(right, element_t, list);
+
+        /*
+         * Str1 < Str2 return < 0
+         * Str1 > Str2 return > 0
+         * Str1 = Str2 return = 0
+         */
+        if (strcmp(left_entry->value, right_entry->value) < 0) {
+            *ptr = left;
+            left = left->next;
+        } else {
+            *ptr = right;
+            right = right->next;
+        }
+        ptr = &(*ptr)->next;
+    }
+    *ptr = (struct list_head *) ((uint64_t) left | (uint64_t) right);
+    return head;
+}
+
+
+static struct list_head *mergesort(struct list_head *head)
+{
+    if (!head || !head->next)
+        return head;
+
+    struct list_head *fast = head->next;
+    struct list_head *slow = head->next;
+    while (fast && fast->next) {
+        fast = fast->next->next;
+        slow = slow->next;
+    }
+    struct list_head *mid = slow;
+    slow->next = NULL;
+
+    struct list_head *left = mergesort(head);
+    struct list_head *right = mergesort(mid);
+
+    return mergelist(left, right);
+}
+
+
+void q_sort(struct list_head *head)
+{
+    if (!head || list_empty(head))
+        return;
+    head->prev->next = NULL;
+    head->next = mergesort(head->next);
+
+    struct list_head *curr = head;
+    struct list_head *next = head->next;
+
+    while (next) {
+        next->prev = curr;
+        curr = next;
+        next = next->next;
+    }
+    curr->next = head;
+    head->prev = curr;
+}
