@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -O1 -g -Wall -Werror -Idudect -I.
-# CFLAGS = -g3 -Wall -Werror -Idudect -I.
+#CFLAGS = -g3 -Wall -Werror -Idudect -I.
 
 
 GIT_HOOKS := .git/hooks/applied
